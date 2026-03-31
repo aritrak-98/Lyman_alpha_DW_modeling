@@ -47,3 +47,6 @@ import lyaDW.utils.galaxy
 ### Optional steps:
 
 This code was designed to calculate the Lyman-alpha equivalent width (EW) fractions by calibrating to the observed EW distribution at z ~ 6 (Tang et al. 2024). So given the transmission coefficients and the observed EW distribution at z = 6, it can calculate the observed EW distributions at higher redshifts by convolving the tranmission distribution with the EW distrbution at z = 6.
+
+
+The ```Example_notebook.ipynb``` file shows an example of how to run the pipeline. However, it is advised to use a pipeline in a ```.py``` code instead of a Jupyter notebook as some of module can take some time to run depending on the number of galaxies. In the example notebook, only a subset of galaxies were selected for faster calculations.
