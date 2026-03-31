@@ -1,1 +1,1 @@
-# Lyman_alpha_DW_modeling
+# Lyman-alpha Damping Wing transmission modeling
