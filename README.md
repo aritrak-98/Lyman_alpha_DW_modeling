@@ -52,4 +52,15 @@ This code was designed to calculate the Lyman-alpha equivalent width (EW) fracti
 The ```Example_notebook.ipynb``` file shows an example of how to run the pipeline. However, it is advised to use a pipeline in a ```.py``` code instead of a Jupyter notebook as some of module can take some time to run depending on the number of galaxies. In the example notebook, only a subset of galaxies were selected for faster calculations.
 
 
+## Dependencies:
+
+1. numpy
+2. scipy
+3. astropy
+4. pickle
+5. jax
+6. h5py
+7. tqdm
+
+
 Aritra Kundu acknowledges the use of the AI model Claude Sonnet 4.6 in helping to turn the modeling pipeline into a Python package.
