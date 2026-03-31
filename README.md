@@ -25,14 +25,16 @@ Details of each function is well-documented as doc-strings. Here's a brief descr
 
 The whole package can be imported as 
 
-import lyaDW
+```import lyaDW```
 
 or each of the module can be imported as
 
-import lyaDW.core.bubble_sizes
+```import lyaDW.core.bubble_sizes```
 
+```
 import lyaDW.io.thesan
 import lyaDW.utils.galaxy
+```
 
 ## Steps to run the code:
 
