@@ -39,7 +39,7 @@ import lyaDW.utils.galaxy
 
 1. Load in your x_HII field and galaxy properties.
 2. Calculate the bubble sizes around each galaxy.
-3. Compute the redshift at which the neutral region stars outside the bubble.
+3. Compute the redshift at which the neutral region starts outside the bubble.
 4. Compute the Lyman-alpha damping wing optical depth around galaxy.
 5. Calculate the transmission coefficients defined as a ratio between emitted and intrinsic Lyman-alpha luminosities.
 
