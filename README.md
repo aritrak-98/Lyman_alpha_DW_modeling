@@ -29,7 +29,8 @@ import lyaDW
 
 or each of the module can be imported as
 
-import lyaDW.core.bubble_sizes \n
+import lyaDW.core.bubble_sizes
+
 import lyaDW.io.thesan
 import lyaDW.utils.galaxy
 
