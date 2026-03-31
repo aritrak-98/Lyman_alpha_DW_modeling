@@ -4,6 +4,7 @@ This package models the Lyman-alpha damping wing transmission around each star-f
 
 Details of each function is well-documented as doc-strings. Here's a brief description of the modules. The main package directory in called lyaDW. The core physics modules are in the /core directory. The package was tested using Thesan and Limfast outputs, so it has some useful loading modules for these simulations in the /io directory. It has some usefule utility packages in the /utils directory. The simulation.py code is used to define the simulation the user is using (more details in the doc-string). The optional use of calculating the equivalent width fractions can be done using the tang24.py code in /observations.
 
+```
 .
 ├── core                    # core physics packages
 │   ├── bubble_sizes.py     # calculates the bubbles sizes around each galaxy using the mean-free path approach
@@ -20,6 +21,7 @@ Details of each function is well-documented as doc-strings. Here's a brief descr
 └── utils                   # useful utilities
     ├── cosmology.py      
     └── galaxy.py
+```
 
 The whole package can be imported as 
 
