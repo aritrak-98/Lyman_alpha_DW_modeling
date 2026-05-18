@@ -13,3 +13,4 @@ limfast : Reader helpers for LIMFAST simulation outputs
  
 from . import thesan
 from . import limfast
+from . import prop

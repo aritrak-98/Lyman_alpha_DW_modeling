@@ -57,8 +57,8 @@ class Simulation:
         self.Omega_l = float(Omega_l)
         self.Omega_b = float(Omega_b)
         self.simname = simname
-        self.snap_halo_arr = (np.asarray(snap_halo_arr) if snap_halo_arr is not None else None)
-        self.snap_cartesian_arr = (np.asarray(snap_cartesian_arr) if snap_cartesian_arr is not None else None)
+        self.snap_halo_arr = (np.asarray(snap_halo_arr, dtype=np.int32) if snap_halo_arr is not None else None)
+        self.snap_cartesian_arr = (np.asarray(snap_cartesian_arr, dtype=np.int32) if snap_cartesian_arr is not None else None)
 
 
         # Validate that snapshot arrays match the redshift arrays
