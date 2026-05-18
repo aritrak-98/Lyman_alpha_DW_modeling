@@ -21,6 +21,7 @@ import pickle
 import os
 import jax
 import jax.numpy as jnp
+from jax.scipy.integrate import trapezoid
 from scipy.integrate import simpson
 from tqdm import tqdm
 
@@ -241,7 +242,7 @@ def _compute_P_EW_z(EW_obs, mu, sigma, T_ratio_matrix):
 def calc_lya_fraction(T_alpha_z6, T_alpha_z, z, sim,
                       M_UV_z6=None, M_UV_z=None,
                       M_UV_1=-20.25, M_UV_2=-18.75,
-                      EW_obs=None, N_samples=1000,
+                      f_vel_out=0.0, EW_obs=None, N_samples=1000,
                       N_T_samples=1000, bright=True,
                       seed=1216, save=False, savepath='./',
                       filename=None):
@@ -274,6 +275,8 @@ def calc_lya_fraction(T_alpha_z6, T_alpha_z, z, sim,
         Bright end of UV magnitude bin. Default: -20.25.
     M_UV_2 : float, optional
         Faint end of UV magnitude bin. Default: -18.75.
+    f_vel_out : float, optional
+        Outflow velocity as a multiple of sigma_v. Default: 0.0.
     EW_obs : np.ndarray or None, optional
         EW grid in Angstroms. If None, uses np.logspace(-5, 5, 200).
     N_samples : int, optional
@@ -338,14 +341,52 @@ def calc_lya_fraction(T_alpha_z6, T_alpha_z, z, sim,
     T_z = np.asarray(T_alpha_z, dtype=np.float64)
  
     if M_UV_z6 is not None:
-        M_UV_z6 = np.asarray(M_UV_z6)
+        M_UV_z6 = np.asarray(M_UV_z6, dtype=np.float64)
         uv_mask_z6 = (M_UV_z6 >= M_UV_1) & (M_UV_z6 < M_UV_2)
         T_z6 = T_z6[uv_mask_z6]
  
     if M_UV_z is not None:
-        M_UV_z = np.asarray(M_UV_z)
+        M_UV_z = np.asarray(M_UV_z, dtype=np.float64)
         uv_mask_z = (M_UV_z >= M_UV_1) & (M_UV_z < M_UV_2)
         T_z = T_z[uv_mask_z]
+
+    # --- Check for empty samples after M_UV masking ---
+    if len(T_z) == 0 or len(T_z6) == 0:
+        import warnings
+        which = 'z' if len(T_z) == 0 else 'z=6'
+        warnings.warn(
+            f"No galaxies found in M_UV bin [{M_UV_1}, {M_UV_2}] at {which}={z_resolved:.2f}. "
+            f"Returning X_25=0, X_10=0.",
+            UserWarning, stacklevel=2
+        )
+        # Compute z=6 anchor fractions even if target z is empty
+        P_obs_z6, _, _ = get_EW_distribution_z6(
+            EW_obs, N_samples=N_samples, bright=bright, seed=seed
+        )
+        X_25_z6 = simpson(P_obs_z6[:, EW_obs >= EW_THRESHOLD_25],
+                          x=EW_obs[EW_obs >= EW_THRESHOLD_25], axis=-1)
+        X_10_z6 = simpson(P_obs_z6[:, EW_obs >= EW_THRESHOLD_10],
+                          x=EW_obs[EW_obs >= EW_THRESHOLD_10], axis=-1)
+        results = {
+            'X_25':    np.zeros(N_samples, dtype=np.float64),
+            'X_10':    np.zeros(N_samples, dtype=np.float64),
+            'X_25_z6': X_25_z6,
+            'X_10_z6': X_10_z6,
+            'z':       z_resolved,
+        }
+ 
+        if save:
+            os.makedirs(savepath, exist_ok=True)
+            sim_label  = f"_{sim.label}" if sim.label else ""
+            bright_str = 'bright' if bright else 'faint'
+            filename   = f"lya_fraction{sim_label}_z{z_resolved:.2f}_{bright_str}.pkl"
+            filepath   = os.path.join(savepath, filename)
+            with open(filepath, 'wb') as f:
+                pickle.dump(results, f)
+            print(f"Saved Lya fraction (empty M_UV bin) to: {filepath}")
+ 
+        return results
+
  
     # ---- Sample Tang+24 parameters at z=6 ---- #
     P_obs_z6, mu_samples, sigma_samples = get_EW_distribution_z6(
@@ -421,7 +462,7 @@ def calc_lya_fraction(T_alpha_z6, T_alpha_z, z, sim,
         sim_simname  = f"{sim.simname}" if sim.simname else ""
         bright_str = 'bright' if bright else 'faint'
         if filename is None:
-            filename   = f"lya_fraction_{sim_simname}_z{z_resolved:.2f}_{bright_str}.pkl"
+            filename   = f"lya_fraction_{sim_simname}_z{z_resolved:.2f}_fvelout{f_vel_out}_{bright_str}.pkl"
         filepath   = os.path.join(savepath, filename)
  
         with open(filepath, 'wb') as f:

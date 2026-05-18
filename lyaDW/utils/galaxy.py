@@ -84,7 +84,7 @@ def compute_sigma_v(M_h, z, h):
     >>> sigma = compute_sigma_v(M_h=1e10, z=7.0, h=0.6774)
     >>> sigma = compute_sigma_v(M_h=np.array([1e9, 1e10, 1e11]), z=7.0, h=0.6774)
     """
-    M_h = np.asarray(M_h, dtype=np.float32)
+    M_h = np.asarray(M_h, dtype=np.float64)
     sigma_v = 20.0 * (M_h / (1e8 * h**(-1)))**(1.0/3.0) * ((1.0 + z) / 10.0)**(0.5)
     return sigma_v
 
@@ -137,10 +137,10 @@ def intrinsic_lya_profile(delta, sigma_v, SFR, vel_out,
     >>> profile.shape   # (N_gal, N_delta)
     """
     # Reshape for broadcasting: (N_gal, 1) against (1, N_delta)
-    delta    = np.asarray(delta)[None, :]          # (1, N_delta)
-    sigma_v  = np.asarray(sigma_v)[:, None]        # (N_gal, 1)
-    SFR      = np.asarray(SFR)[:, None]            # (N_gal, 1)
-    vel_out  = np.asarray(vel_out)[:, None]        # (N_gal, 1)
+    delta    = np.asarray(delta, dtype=np.float64)[None, :]          # (1, N_delta)
+    sigma_v  = np.asarray(sigma_v, dtype=np.float64)[:, None]        # (N_gal, 1)
+    SFR      = np.asarray(SFR, dtype=np.float64)[:, None]            # (N_gal, 1)
+    vel_out  = np.asarray(vel_out, dtype=np.float64)[:, None]        # (N_gal, 1)
  
     # Velocity offset from line centre
     del_v = C_KM_S * delta                         # km/s, shape (1, N_delta)

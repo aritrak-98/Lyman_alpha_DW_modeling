@@ -19,6 +19,7 @@ import numpy as np
 import h5py
 
 from lyaDW.utils.galaxy import compute_sigma_v
+import lyaDW
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +133,8 @@ def load_galaxies(thesan_dir, sim, z, M_h_min=0.0, M_h_max=np.inf):
         Subhalo halo masses in M_Sun.
     stellar_masses : np.ndarray, shape (N,)
         Subhalo stellar masses in M_Sun.
+    sfr: np.ndarray, shape (N,)
+        Star-formation rate in M_Sun/yr.
 
     Raises
     ------
@@ -194,4 +197,4 @@ def load_galaxies(thesan_dir, sim, z, M_h_min=0.0, M_h_max=np.inf):
         (halo_masses < M_h_max)
     )
 
-    return positions[mask], halo_masses[mask], stellar_masses[mask], SFR[mask]
+    return np.float64(positions[mask]), np.float64(halo_masses[mask]), np.float64(stellar_masses[mask]), np.float64(SFR[mask])

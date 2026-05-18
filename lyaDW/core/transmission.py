@@ -1,14 +1,16 @@
 """
 transmission.py — Lyman-alpha transmission coefficient computation.
- 
+
 For each galaxy, this code computes the IGM Lyman-alpha transmission coefficient T_alpha by
 integrating the attenuated Lyman-alpha profile over frequency and dividing
 by the intrinsic (unattenuated) profile integral.
- 
-    T_alpha = integral(J_nu * exp(-tau_DW) dnu) / integral(J_nu dnu)
 
+    T_alpha = integral(J_nu * exp(-tau_DW) dnu, delta >= 0) / integral(J_nu dnu, all delta)
+
+The numerator integrates only over delta >= 0 since tau_DW = inf for delta < 0,
+making the blueward contribution exactly zero. This avoids numerical issues
+from grid resolution near delta = 0.
 """
-
 
 import numpy as np
 import jax
@@ -16,7 +18,7 @@ import jax.numpy as jnp
 from jax.scipy.integrate import trapezoid
 import h5py
 import os
- 
+
 from lyaDW.utils.galaxy import (
     intrinsic_lya_profile,
     DEFAULT_F_ESC,
@@ -26,67 +28,70 @@ from lyaDW.utils.galaxy import (
 )
 
 
-
 # ---------------------------------------------------------------------------
 # Internal JAX functions
 # ---------------------------------------------------------------------------
 
 @jax.jit
-def _compute_T_alpha_batched(J_nu_int, tau_dw, nu_rest):
+def _compute_T_alpha_batched(J_nu_int, J_nu_att_pos, nu_rest, nu_rest_pos):
     """
     Compute T_alpha for a batch of galaxies.
- 
-    T_alpha = integral(J_nu * exp(-tau_DW) dnu) / integral(J_nu dnu)
- 
+
+    T_alpha = integral(J_nu_att dnu, delta>=0) / integral(J_nu dnu, all delta)
+
+    The numerator integrates only over delta >= 0 since tau_DW = inf for
+    delta < 0, making the blueward contribution exactly zero. This gives
+    T_alpha <= 0.5 for f_vel_out = 0 regardless of grid resolution.
+
     Parameters
     ----------
     J_nu_int : jnp.ndarray, shape (N_gal, N_delta)
-        Intrinsic Lyman-alpha profile in W/Hz.
-    tau_dw : jnp.ndarray, shape (N_gal, N_delta)
-        Damping wing optical depth.
+        Intrinsic Lyman-alpha profile in W/Hz, over all delta.
+    J_nu_att_pos : jnp.ndarray, shape (N_gal, N_delta_pos)
+        Attenuated profile (J_nu * exp(-tau_DW)) over delta >= 0 only,
+        already reversed for increasing frequency order.
     nu_rest : jnp.ndarray, shape (N_delta,)
-        Rest-frame frequency array in Hz. Expected to be decreasing.
- 
+        Rest-frame frequency over all delta, decreasing.
+    nu_rest_pos : jnp.ndarray, shape (N_delta_pos,)
+        Rest-frame frequency over delta >= 0 only, reversed (increasing).
+
     Returns
     -------
     jnp.ndarray, shape (N_gal,)
         Transmission coefficient T_alpha in [0, 1].
     """
-    # Attenuated profile — exp(-inf) = 0 for delta < 0
-    J_nu_att = J_nu_int * jnp.exp(-tau_dw)
- 
-    # Reverse along frequency axis for trapezoid (needs increasing x)
+    # Denominator: integrate intrinsic profile over all delta
     nu_rest_rev  = nu_rest[::-1]
     J_nu_int_rev = J_nu_int[:, ::-1]
-    J_nu_att_rev = J_nu_att[:, ::-1]
- 
-    # Integrate over frequency for each galaxy (axis=1)
-    num   = trapezoid(J_nu_att_rev, nu_rest_rev, axis=1)
     denom = trapezoid(J_nu_int_rev, nu_rest_rev, axis=1)
- 
+
+    # Numerator: integrate attenuated profile over delta >= 0 only
+    num = trapezoid(J_nu_att_pos, nu_rest_pos, axis=1)
+
     # Guard against division by zero (galaxies with zero SFR)
     T_alpha = jnp.where(denom > 0.0, num / denom, 0.0)
- 
+
     return T_alpha
 
 
-
-
 # ---------------------------------------------------------------------------
-# The main function the user needs to call
+# Public API
 # ---------------------------------------------------------------------------
- 
+
 def compute_T_alpha(tau_dw, delta, z_s, sigma_v, SFR, sim,
                     f_vel_out=0.0, f_esc=DEFAULT_F_ESC, f_alpha=DEFAULT_F_ALPHA,
                     batch_size=1000, save=False, savepath='./', filename=None):
     """
     Compute the Lyman-alpha IGM transmission coefficient T_alpha for each galaxy.
- 
+
     T_alpha is the fraction of intrinsic Lyman-alpha luminosity that survives
     IGM absorption:
- 
-        T_alpha = integral(J_nu * exp(-tau_DW) dnu) / integral(J_nu dnu)
- 
+
+        T_alpha = integral(J_nu * exp(-tau_DW) dnu, delta>=0) / integral(J_nu dnu)
+
+    The numerator integrates only over delta >= 0 since photons blueward of
+    line centre are completely absorbed (tau_DW = inf for delta < 0).
+
     Parameters
     ----------
     tau_dw : np.ndarray, shape (N, N_delta)
@@ -113,14 +118,14 @@ def compute_T_alpha(tau_dw, delta, z_s, sigma_v, SFR, sim,
         If True, save T_alpha to an HDF5 file. Default: False.
     savepath : str, optional
         Directory to save the output file. Default: './'.
-    filename :  str, optional
-        Name of the output file. Default: None
- 
+    filename : str, optional
+        Name of the output file. Default: None.
+
     Returns
     -------
     T_alpha : np.ndarray, shape (N,)
         Transmission coefficient for each galaxy, in [0, 1].
- 
+
     Examples
     --------
     >>> T_alpha = lyaDW.core.transmission.compute_T_alpha(
@@ -130,22 +135,21 @@ def compute_T_alpha(tau_dw, delta, z_s, sigma_v, SFR, sim,
     ...     save=True, savepath='./output/'
     ... )
     """
-    # ---- Resolve redshift ---- #
+    # --- Resolve redshift ---
     z_s_resolved = sim.resolve_redshift(z_s)
- 
-    # ---- Validate and convert inputs to float64 ---- #
-    tau_dw = np.asarray(tau_dw,  dtype=np.float64)
-    delta = np.asarray(delta,   dtype=np.float64)
+
+    # --- Validate and convert inputs to float64 ---
+    tau_dw  = np.asarray(tau_dw,  dtype=np.float64)
+    delta   = np.asarray(delta,   dtype=np.float64)
     sigma_v = np.asarray(sigma_v, dtype=np.float64)
-    SFR = np.asarray(SFR,     dtype=np.float64)
- 
+    SFR     = np.asarray(SFR,     dtype=np.float64)
+
     N_gal = tau_dw.shape[0]
- 
+
     if tau_dw.shape[1] != len(delta):
         raise ValueError(
             f"tau_dw shape {tau_dw.shape} is inconsistent with "
-            f"delta length {len(delta)}. "
-            f"Make sure you pass the delta returned by optical_depth.compute()."
+            f"delta length {len(delta)}."
         )
     if len(sigma_v) != N_gal:
         raise ValueError(
@@ -157,24 +161,28 @@ def compute_T_alpha(tau_dw, delta, z_s, sigma_v, SFR, sim,
             f"SFR length ({len(SFR)}) must match "
             f"number of galaxies in tau_dw ({N_gal})."
         )
- 
-    # ---- Frequency grids ---- #
+
+    # --- Frequency grids ---
     nu_rest = (NU_ALPHA / (1.0 + delta)).astype(np.float64)   # Hz, decreasing
-    dnu_dv = -nu_rest / C_KM_S                               # Hz / (km/s)
- 
-    # ---- Outflow velocities ---- #
+    dnu_dv  = -nu_rest / C_KM_S                               # Hz / (km/s)
+
+    # Precompute positive-delta frequency grid (static, outside JAX)
+    n_neg        = int(np.sum(delta < 0))    # number of negative delta points
+    nu_rest_pos  = jnp.array(nu_rest[n_neg:][::-1], dtype=jnp.float64)
+
+    # --- Outflow velocities ---
     vel_out = f_vel_out * sigma_v    # km/s
- 
-    # ---- Process in batches ---- #
+
+    # --- Process in batches ---
     num_batches = (N_gal + batch_size - 1) // batch_size
-    T_alpha = np.zeros(N_gal, dtype=np.float64)
- 
+    T_alpha     = np.zeros(N_gal, dtype=np.float64)
+
     nu_rest_jax = jnp.array(nu_rest, dtype=jnp.float64)
- 
+
     for batch_idx in range(num_batches):
         start = batch_idx * batch_size
-        end = min(start + batch_size, N_gal)
- 
+        end   = min(start + batch_size, N_gal)
+
         # Intrinsic profile in W/(km/s), shape (batch, N_delta)
         J_v_batch = intrinsic_lya_profile(
             delta,
@@ -184,34 +192,41 @@ def compute_T_alpha(tau_dw, delta, z_s, sigma_v, SFR, sim,
             f_esc=f_esc,
             f_alpha=f_alpha
         )
- 
+
         # Convert to W/Hz
-        J_nu_batch = J_v_batch / np.abs(dnu_dv[None, :])
- 
-        # Compute T_alpha for this batch
+        J_nu_batch = J_v_batch / np.abs(dnu_dv[None, :])   # (batch, N_delta)
+
+        # Compute attenuated profile and slice to delta >= 0 outside JAX
+        # This avoids dynamic boolean indexing inside JIT
+        J_nu_att_batch     = J_nu_batch * np.exp(-tau_dw[start:end])
+        J_nu_att_pos_batch = jnp.array(
+            J_nu_att_batch[:, n_neg:][:, ::-1], dtype=jnp.float64
+        )   # (batch, N_delta_pos), reversed for increasing frequency
+
         J_nu_jax = jnp.array(J_nu_batch, dtype=jnp.float64)
-        tau_jax  = jnp.array(tau_dw[start:end], dtype=jnp.float64)
- 
-        batch_T = _compute_T_alpha_batched(J_nu_jax, tau_jax, nu_rest_jax)
+
+        batch_T = _compute_T_alpha_batched(
+            J_nu_jax, J_nu_att_pos_batch, nu_rest_jax, nu_rest_pos
+        )
         T_alpha[start:end] = np.asarray(batch_T, dtype=np.float64)
- 
-    # ---- Save (optional) ---- #
+
+    # --- Save (optional) ---
     if save:
         os.makedirs(savepath, exist_ok=True)
         sim_simname = f"{sim.simname}" if sim.simname else ""
         if filename is None:
             filename = f"T_alpha_{sim_simname}_z{z_s_resolved:.2f}_fvelout{f_vel_out}.h5"
         filepath = os.path.join(savepath, filename)
- 
+
         with h5py.File(filepath, 'w') as f:
             ds = f.create_dataset('T_alpha', data=T_alpha)
-            ds.attrs['z_s'] = z_s_resolved
+            ds.attrs['z_s']       = z_s_resolved
             ds.attrs['f_vel_out'] = f_vel_out
-            ds.attrs['f_esc'] = f_esc
-            ds.attrs['f_alpha'] = f_alpha
+            ds.attrs['f_esc']     = f_esc
+            ds.attrs['f_alpha']   = f_alpha
             if sim.simname:
                 ds.attrs['simulation'] = sim.simname
- 
+
         print(f"Saved T_alpha to: {filepath}")
- 
+
     return T_alpha

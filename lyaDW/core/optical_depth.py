@@ -18,6 +18,7 @@ import jax.numpy as jnp
 import h5py
 import os
 from numpy.polynomial.legendre import leggauss
+from tqdm import tqdm 
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +264,7 @@ def compute_tau(z_beg, z_s, sim, z_end=5.5, delta=None, n_quad=64,
  
     delta_jax = jnp.array(delta, dtype=jnp.float64)
 
-    for batch_idx in range(num_batches):
+    for batch_idx in tqdm(range(num_batches)):
         start = batch_idx * batch_size
         end   = min(start + batch_size, N_gal)
  
