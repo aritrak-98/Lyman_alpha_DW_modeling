@@ -57,6 +57,16 @@ This code was designed to calculate the Lyman-alpha equivalent width (EW) fracti
 The ```Example_notebook.ipynb``` file shows an example of how to run the pipeline. However, it is advised to use a pipeline in a ```.py``` code instead of a Jupyter notebook as some of module can take some time to run depending on the number of galaxies. In the example notebook, only a subset of galaxies were selected for faster calculations.
 
 
+### Updates to version 0.2.0
+
+The package now includes 
+- more I/O modules for easily reading data files
+- damping wing optical depth calculation in patchy IGM scenario
+
+### Upcoming updates to version 0.3.0
+
+New intrinsic Lyman-alpha profile from Neyer+25
+
 ## Dependencies:
 
 1. numpy
