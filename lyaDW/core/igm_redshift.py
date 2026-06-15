@@ -148,11 +148,24 @@ def _bisection_batched(R_ion_arr, z_s, z_end, d_H0, Omega_m, Omega_l, tol=1e-6):
     
             z_hi, z_lo = jax.lax.cond(sign, true_fn, false_fn)
             return z_hi, z_lo
+
+        def run_bisection():
+            init_state = (z_s, z_end)
+            z_hi_new, z_lo_new = jax.lax.while_loop(cond_fun, body_fun, init_state)
+            return 0.5*(z_hi_new + z_lo_new)
+
+        # If R_ion >= d_total, bubble extends beyond z_end — clamp to z_end
+        d_total = _distance_between_z(z_end, z_s, d_H0, Omega_m, Omega_l)
+        return jax.lax.cond(
+            R_ion >= d_total,
+            lambda: jnp.float64(z_end),
+            lambda: run_bisection()
+        )
     
-        init_state = (z_s, z_end)
-        z_hi_new, z_lo_new = jax.lax.while_loop(cond_fun, body_fun, init_state)
-    
-        return 0.5*(z_hi_new + z_lo_new)
+        #init_state = (z_s, z_end)
+        #z_hi_new, z_lo_new = jax.lax.while_loop(cond_fun, body_fun, init_state)
+        #
+        #return 0.5*(z_hi_new + z_lo_new)
 
     batched_z_beg = jax.vmap(_bisection_single, in_axes=(0))
 

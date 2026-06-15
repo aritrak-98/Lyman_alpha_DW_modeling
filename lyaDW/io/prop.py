@@ -207,7 +207,7 @@ def load_tau_dw(filepath):
 # Load transmission data
 # ---------------------------------------------------------------------------
 
-def load_transmission_alpha(filepath):
+def load_transmission_alpha(filepath, neyer=False):
 
     """
     Load transmission data.
@@ -216,6 +216,8 @@ def load_transmission_alpha(filepath):
     ----------
     filepath : str
         Path to the HDF5 files.
+    neyer : boolean
+        If True, loads the transmission data for the double peaked profile in Neyer+25
 
     Returns
     -------
@@ -228,25 +230,41 @@ def load_transmission_alpha(filepath):
     ...     './output/T_alpha_Thesan_z9.01_fvelout0.0.h5'
     ... )
     """
-    with h5py.File(filepath, 'r') as f:
-        data    = f['T_alpha']
-        T_alpha = data[:]
+    if(neyer == False):
+        with h5py.File(filepath, 'r') as f:
+            data    = f['T_alpha']
+            T_alpha = data[:]
+    
+            z_s   = data.attrs['z_s']
+            f_vel_out = data.attrs['f_vel_out']
+            f_esc = data.attrs['f_esc']
+            f_alpha = data.attrs['f_alpha']
+            simname = data.attrs['simulation']
+    
+        print(f"Loaded T_alpha from: {filepath}")
+        print(f"Simulation      = {simname}")
+        print(f"  z_s           = {z_s:.4f}")
+        print(f"  f_vel_out     = {f_vel_out:.2f}")
+        print(f"  N_gal         = {T_alpha.shape[0]}")
+        print(f"  f_esc         = {f_esc:.4f}")
+        print(f"  f_alpha       = {f_alpha:.4f}")
+    
+        return T_alpha
 
-        z_s   = data.attrs['z_s']
-        f_vel_out = data.attrs['f_vel_out']
-        f_esc = data.attrs['f_esc']
-        f_alpha = data.attrs['f_alpha']
-        simname = data.attrs['simulation']
+    else:
+        with h5py.File(filepath, 'r') as f:
+            data    = f['T_alpha']
+            T_alpha = data[:]
 
-    print(f"Loaded T_alpha from: {filepath}")
-    print(f"Simulation      = {simname}")
-    print(f"  z_s           = {z_s:.4f}")
-    print(f"  f_vel_out     = {f_vel_out:.2f}")
-    print(f"  N_gal         = {T_alpha.shape[0]}")
-    print(f"  f_esc         = {f_esc:.4f}")
-    print(f"  f_alpha       = {f_alpha:.4f}")
+            z_s   = data.attrs['z_s']
+            simname = data.attrs['simulation']
 
-    return T_alpha
+        print(f"Loaded T_alpha from: {filepath}")
+        print(f"Simulation      = {simname}")
+        print(f"  z_s           = {z_s:.4f}")
+        print(f"  N_gal         = {T_alpha.shape[0]}")
+
+        return T_alpha
 
 
 # ---------------------------------------------------------------------------

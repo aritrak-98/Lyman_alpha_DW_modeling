@@ -519,7 +519,7 @@ def _compute_tau_dw_single(gal_idx, z_arr_gal, x_HI_arr_gal, z_beg_gal,
 # ---------------------------------------------------------------------------
 
 def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
-                        z_s, z_end, seed=1216, n_jobs=-1,
+                        z_s, z_end, seed=1216, direction=None, n_jobs=-1,
                         save=False, savepath='./', tmpdir=None):
     """
     Walk each galaxy's line of sight through the HII fraction field and
@@ -552,6 +552,10 @@ def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
     seed : int, optional
         Random seed. Must match the seed used in bubble_sizes.compute()
         to ensure the same sightline directions. Default: 1216.
+    direction : ndarray(3, )
+        User defined unit vector direction for all galaxies.
+        If None, then random directions for all galaxies are generated using
+        the seed value. Default: None.
     n_jobs : int, optional
         Number of parallel jobs for joblib. -1 uses all available cores.
         1 disables parallelism (useful for debugging). Default: -1.
@@ -590,7 +594,7 @@ def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
     --------
     >>> z_arr, x_HI_arr, z_beg, n_cells = lyaDW.core.optical_depth_patchy.traverse_sightlines(
     ...     galaxy_pos, HII_cube_interp_all, BoxSize,
-    ...     sim=sim, z_s=7.33, z_end=5.5, seed=1216, n_jobs=-1
+    ...     sim=sim, z_s=7.33, z_end=5.5, seed=1216, direction=None, n_jobs=-1
     ... )
     """
     z_s_resolved = sim.resolve_redshift(z_s)
@@ -605,8 +609,12 @@ def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
     Omega_m = cosmo['Omega_m']
     Omega_l = cosmo['Omega_l']
 
+    if direction is None:
     # Generate random directions in main process
-    directions = _get_random_directions(N_gal, seed)
+        directions = _get_random_directions(N_gal, seed)
+    else:
+        directions = np.zeros((N_gal, 3))
+        directions[:] = direction
 
     # Available redshifts for snap lookup (sorted ascending)
     avail_z = np.sort(sim.redshifts)
