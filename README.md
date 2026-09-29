@@ -6,25 +6,26 @@ Details of each function is well-documented as doc-strings. Here's a brief descr
 
 ```
 ├── core                            # core physics packages
-│   ├── bubble_sizes.py             # calculates the bubbles sizes around each galaxy using the mean-free path approach
-│   ├── igm_redshift.py             # calculates the starting redshift of the IGM outside each bubble
-│   ├── __init__.py
-│   ├── luminosity.py               # calculates the Lyman-alpha intrinsic and transmitted luminosities as well as the UV luminosity for each galaxy
-│   ├── optical_depth_patchy.py     # calculates the Lyman-alpha damping wing optical depth in a patchy IGM scenario
-│   ├── optical_depth.py            # calculates the Lyman-alpha damping wing optical depth
-│   └── transmission.py             # calculates the transmission coefficients
-├── io                              # useful I/O module
-│   ├── __init__.py
-│   ├── limfast.py                  # useful I/O module for Limfast
-│   ├── prop.py                     # usefule I/O module for general functions
-│   └── thesan.py                   # useful I/O module for Thesan
+│   ├── bubble_sizes.py             # calculates the bubble sizes around each galaxy using the mean-free path approach
+│   ├── igm_redshift.py             # calculates the starting redshift of the IGM outside each bubble
+│   ├── __init__.py
+│   ├── luminosity.py               # calculates the Lyman-alpha intrinsic and transmitted luminosities as well as the UV luminosity for each galaxy
+│   ├── optical_depth_patchy.py     # calculates the Lyman-alpha damping wing optical depth in a patchy IGM scenario
+│   ├── optical_depth.py            # calculates the Lyman-alpha damping wing optical depth
+│   └── transmission.py             # calculates the transmission coefficients
+├── io                              # useful I/O modules
+│   ├── __init__.py
+│   ├── limfast.py                  # I/O for LIMFAST
+│   ├── prop.py                     # I/O for general functions
+│   └── thesan.py                   # I/O for Thesan
 ├── observations
-│   ├── __init__.py
-│   └── tang24.py                   # optional P(EW) calculations
+│   ├── __init__.py
+│   ├── mason18.py                  # optional P(EW) calculations (Mason et al. 2018)
+│   └── tang24.py                   # optional P(EW) calculations (Tang et al. 2024)
 ├── utils                           # useful utilities
-│   ├── cosmology.py
-│   ├── galaxy.py
-│   └── __init__.py
+│   ├── cosmology.py
+│   ├── galaxy.py
+│   └── __init__.py
 ├── __init__.py
 └── simulation.py                   # for defining the simulation
 ```
