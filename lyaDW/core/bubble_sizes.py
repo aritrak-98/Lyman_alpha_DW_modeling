@@ -98,7 +98,7 @@ def _build_interpolator(HII_cube, BoxSize):
 
 
 
-def _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxSize, seed):
+def _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxSize, seed, direction):
     """
     Compute MFP bubble sizes for all galaxies via JAX vmap.
  
@@ -116,6 +116,10 @@ def _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxS
         Spatial extent of the periodic box.
     seed : int
         Random seed for reproducibility.
+    direction : ndarray(3, )
+        User defined unit vector direction for all galaxies.
+        If None, then random directions for all galaxies are generated using
+        the seed value. Default: None.
  
     Returns
     -------
@@ -143,27 +147,31 @@ def _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxS
         mfp_dist : float
             MFP bubble size in the same units as BoxSize.
         """
-        # Sample a random isotropic direction
-        # Split key into two subkeys: one for phi, one for cos_theta
-        key_phi, key_costheta = jax.random.split(key)
-    
-        phi = jax.random.uniform(key_phi, (), minval=0, maxval=2*jnp.pi)
-        cos_theta = jax.random.uniform(key_costheta, (), minval=-1, maxval=1)
-        sin_theta = jnp.sqrt(1 - cos_theta**2)
-        cos_phi = jnp.cos(phi)
-        sin_phi = jnp.sin(phi)
-    
-        direction_vec = jnp.array([
-            sin_theta*cos_phi, 
-            sin_theta*sin_phi, 
-            cos_theta
-        ])
+        if direction is None:
+            # Sample a random isotropic direction
+            # Split key into two subkeys: one for phi, one for cos_theta
+            key_phi, key_costheta = jax.random.split(key)
+        
+            phi = jax.random.uniform(key_phi, (), minval=0, maxval=2*jnp.pi)
+            cos_theta = jax.random.uniform(key_costheta, (), minval=-1, maxval=1)
+            sin_theta = jnp.sqrt(1 - cos_theta**2)
+            cos_phi = jnp.cos(phi)
+            sin_phi = jnp.sin(phi)
+        
+            direction_vec = jnp.array([
+                sin_theta*cos_phi, 
+                sin_theta*sin_phi, 
+                cos_theta
+            ])
+        else:
+            direction_vec = direction/jnp.linalg.norm(direction)
     
         def cond_fun(state):
             current_pos, dist = state
             wrapped_pos = current_pos % BoxSize
             x_HII_val = HII_interp(wrapped_pos[None, :])[0]
-            return x_HII_val > xHII_threshold
+            #return x_HII_val > xHII_threshold
+            return (x_HII_val > xHII_threshold) & (dist < 5*BoxSize)
         
         def body_fun(state):
             current_pos, dist = state
@@ -188,6 +196,7 @@ def _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxS
 
 def compute_bubble_sizes(galaxy_pos, HII_cube, BoxSize, sim, z, 
                          xHII_threshold=0.5, seed=1216, 
+                         direction=None,
                          boxsize_units=None, save=False, savepath='/.',
                          filename=None):
 
@@ -217,6 +226,10 @@ def compute_bubble_sizes(galaxy_pos, HII_cube, BoxSize, sim, z,
         Default: 0.5.
     seed : int, optional
         JAX random seed for reproducible direction sampling. Default: 1216 (must be this number right?).
+    direction : ndarray(3, )
+        User defined unit vector direction for all galaxies.
+        If None, then random directions for all galaxies are generated using
+        the seed value. Default: None.
     boxsize_units : str or None, optional
         Units of BoxSize (and therefore of the output R_ion (bubble size)). If provided,
         R_ion is converted to Mpc. If None, R_ion is returned in the same
@@ -284,7 +297,7 @@ def compute_bubble_sizes(galaxy_pos, HII_cube, BoxSize, sim, z,
 
 
     # ---- Compute MFP bubble sizes ---- #
-    R_ion = _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxSize, seed)   # JAX array
+    R_ion = _compute_mfp_batched(galaxy_pos, HII_interp, xHII_threshold, step_size, BoxSize, seed, direction)   # JAX array
     R_ion = np.asarray(R_ion, dtype=np.float64)  # Numpy array in the final version
 
 

@@ -8,3 +8,4 @@ tang24 : Tang et al. (2024) log-normal EW distribution at z=6,
 """
  
 from . import tang24
+from . import mason18

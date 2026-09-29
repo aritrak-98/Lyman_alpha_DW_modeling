@@ -333,6 +333,7 @@ def _build_interp_from_memmap(fpath, BoxSize, NumPixels):
 
 
 def _traverse_single_sightline(gal_idx, pos, direction, z_s, z_end,
+                               xHI_threshold,
                                memmap_paths, avail_z,
                                BoxSize, NumPixels, step_size,
                                d_fine, z_fine_rev, d_total, h):
@@ -358,6 +359,8 @@ def _traverse_single_sightline(gal_idx, pos, direction, z_s, z_end,
         Source redshift.
     z_end : float
         Redshift at which the walk stops.
+    xHI_threshold :  float
+        Threshold to determine edge of the bubble
     memmap_paths : dict
         Dictionary mapping redshift -> path to memory-mapped .npy file.
     avail_z : np.ndarray
@@ -419,7 +422,7 @@ def _traverse_single_sightline(gal_idx, pos, direction, z_s, z_end,
         x_HI_arr_gal.append(x_HI)
 
         # Record first neutral cell
-        if not found_neutral and x_HI > 0.5:
+        if not found_neutral and x_HI > xHI_threshold:
             z_beg_gal     = z_i
             found_neutral = True
 
@@ -428,7 +431,7 @@ def _traverse_single_sightline(gal_idx, pos, direction, z_s, z_end,
         pos      += direction * step_size
 
         # Convert distance to redshift via lookup table
-        mfp_dist_mpc = mfp_dist / (h * 1000.0)    # ckpc/h → Mpc
+        mfp_dist_mpc = mfp_dist / (h * 1000.0)    # ckpc/h -> Mpc
         z_i = float(np.interp(d_total - mfp_dist_mpc, d_fine, z_fine_rev))
 
         z_arr_gal.append(z_i)
@@ -479,7 +482,8 @@ def _compute_tau_dw_single(gal_idx, z_arr_gal, x_HI_arr_gal, z_beg_gal,
         tau_DW for this galaxy.
     """
     delta_pos = delta[mask_pos]
-    tau       = np.zeros(len(delta), dtype=np.float64)
+    tau1       = np.zeros(len(delta), dtype=np.float64)
+    tau2       = np.zeros(len(delta), dtype=np.float64)
 
     # Extract valid cells
     z_beg_all = z_arr_gal[:n_c]           # All the redshifts of the near-edge of each cell
@@ -488,30 +492,49 @@ def _compute_tau_dw_single(gal_idx, z_arr_gal, x_HI_arr_gal, z_beg_gal,
 
     # This checks for valid cells.
     # Only the cells with redshift below z_beg_gal (the redshift of the first neutral cell outside the ionized region)
-    # contributes to tau_DW
-    valid_mask = (
+    # contributes to tau_DW (obsolete)
+    valid_mask1 = (
         (z_beg_all >= 0.0) &
         (z_end_all >= 0.0) &
         (x_HI_all  >  0.0) &
         (z_beg_all <= z_beg_gal)
     )
+    
+    valid_mask2 = (
+        (z_beg_all >= 0.0) &
+        (z_end_all >= 0.0) &
+        (x_HI_all  >  0.0) & 
+        (z_beg_all < z_arr_gal[0])
+    )
+    
+    z_beg_cells1 = z_beg_all[valid_mask1]
+    z_end_cells1 = z_end_all[valid_mask1]
+    x_HI_cells1  = x_HI_all[valid_mask1]
 
-    z_beg_cells = z_beg_all[valid_mask]
-    z_end_cells = z_end_all[valid_mask]
-    x_HI_cells  = x_HI_all[valid_mask]
+    z_beg_cells2 = z_beg_all[valid_mask2]
+    z_end_cells2 = z_end_all[valid_mask2]
+    x_HI_cells2  = x_HI_all[valid_mask2]
 
-    if len(z_beg_cells) == 0:
-        tau[~mask_pos] = np.inf
-        return tau
+    if len(z_beg_cells1) == 0:
+        tau1[~mask_pos] = np.inf
+        tau2[~mask_pos] = np.inf
+        
+        return tau1, tau2
 
     # Single batched call for all valid cells x all delta values
-    tau[mask_pos] = _integrate_gauss_batched(
-        z_beg_cells, z_end_cells, x_HI_cells,
+    tau1[mask_pos] = _integrate_gauss_batched(
+        z_beg_cells1, z_end_cells1, x_HI_cells1,
         delta_pos, z_s, tau_gp, nodes, weights
     )
-    tau[~mask_pos] = np.inf
+    tau1[~mask_pos] = np.inf
 
-    return tau
+    tau2[mask_pos] = _integrate_gauss_batched(
+        z_beg_cells2, z_end_cells2, x_HI_cells2,
+        delta_pos, z_s, tau_gp, nodes, weights
+    )
+    tau2[~mask_pos] = np.inf
+
+    return tau1, tau2
 
 
 # ---------------------------------------------------------------------------
@@ -519,7 +542,8 @@ def _compute_tau_dw_single(gal_idx, z_arr_gal, x_HI_arr_gal, z_beg_gal,
 # ---------------------------------------------------------------------------
 
 def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
-                        z_s, z_end, seed=1216, direction=None, n_jobs=-1,
+                        z_s, z_end, xHI_threshold = 0.5,
+                        seed=1216, direction=None, n_jobs=-1,
                         save=False, savepath='./', tmpdir=None):
     """
     Walk each galaxy's line of sight through the HII fraction field and
@@ -549,6 +573,8 @@ def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
         Source redshift. Resolved to closest available redshift in sim.
     z_end : float
         Redshift at which the sightline walk stops.
+    xHI_threshold :  float
+        Threshold to determine edge of the bubble. Default: 0.5
     seed : int, optional
         Random seed. Must match the seed used in bubble_sizes.compute()
         to ensure the same sightline directions. Default: 1216.
@@ -599,7 +625,7 @@ def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
     """
     z_s_resolved = sim.resolve_redshift(z_s)
 
-    # Ensure 2D — handles single galaxy input (3,) → (1, 3)
+    # Ensure 2D — handles single galaxy input (3,) -> (1, 3)
     galaxy_pos = np.atleast_2d(np.asarray(galaxy_pos, dtype=np.float64))
     N_gal      = galaxy_pos.shape[0]
 
@@ -646,6 +672,7 @@ def traverse_sightlines(galaxy_pos, HII_cube_interp_all, BoxSize, sim,
                     galaxy_pos[gal_idx],
                     directions[gal_idx],
                     z_s_resolved, z_end,
+                    xHI_threshold,
                     memmap_paths, avail_z,
                     BoxSize, NumPixels, step_size,
                     d_fine, z_fine_rev, d_total,
@@ -846,7 +873,7 @@ def compute_tau_dw(z_arr, x_HI_arr, z_beg, n_cells, z_s, sim,
     """
     Compute the patchy Lyman-alpha damping wing optical depth tau_DW.
 
-    Sums tau_DW contributions from all neutral cells along each sightline
+    Sums tau_DW contributions from all cells along each sightline
     in a single batched numpy operation per galaxy. Galaxies are processed
     in parallel using joblib.
 
@@ -885,22 +912,24 @@ def compute_tau_dw(z_arr, x_HI_arr, z_beg, n_cells, z_s, sim,
 
     Returns
     -------
-    tau_dw : np.ndarray, shape (N_gal, N_delta)
-        Patchy damping wing optical depth. Values are inf for delta < 0.
+    tau_dw1 : np.ndarray, shape (N_gal, N_delta)
+        Patchy damping wing optical depth calculated from the neutral cells outside the ionized regions. 
+        Values are inf for delta < 0.
+    tau_dw2 : np.ndarray, shape (N_gal, N_delta)
+        Patchy damping wing optical depth calculated from cell after the source redshift. 
+        Values are inf for delta < 0.
     delta : np.ndarray, shape (N_delta,)
         The delta grid used.
 
     Notes
     -----
-    - Only cells with z_beg_cell <= z_beg[gal] are included (neutral region).
-    - Cells with x_HI = 0 (fully ionized) contribute zero optical depth.
     - All valid cells per galaxy are batched into a single numpy operation.
     - Memory usage per worker: O(N_cells * N_delta * n_quad) floats.
       With n_quad=8, N_cells~6500, N_delta~1000: ~400 MB per worker.
 
     Examples
     --------
-    >>> tau_dw, delta = lyaDW.core.optical_depth_patchy.compute_tau_dw(
+    >>> tau_dw1, tau_dw2, delta = lyaDW.core.optical_depth_patchy.compute_tau_dw(
     ...     z_arr, x_HI_arr, z_beg, n_cells,
     ...     z_s=7.33, sim=sim, z_end=5.5,
     ...     save=True, savepath='./output/'
@@ -946,7 +975,8 @@ def compute_tau_dw(z_arr, x_HI_arr, z_beg, n_cells, z_s, sim,
             for gal_idx in range(N_gal)
         )
 
-    tau_dw = np.array(results, dtype=np.float64)
+    tau_dw1 = np.array([r[0] for r in results], dtype=np.float64)
+    tau_dw2 = np.array([r[1] for r in results], dtype=np.float64)
 
     # --- Save (optional) ---
     if save:
@@ -956,16 +986,25 @@ def compute_tau_dw(z_arr, x_HI_arr, z_beg, n_cells, z_s, sim,
         filepath  = os.path.join(savepath, filename)
 
         with h5py.File(filepath, 'w') as f:
-            ds = f.create_dataset('tau_dw', data=tau_dw)
-            ds.attrs['z_s']    = z_s_resolved
-            ds.attrs['z_end']  = z_end
-            ds.attrs['n_quad'] = n_quad
+            ds1 = f.create_dataset('tau_dw1', data=tau_dw1)
+            ds2 = f.create_dataset('tau_dw2', data=tau_dw2)
+            
+            ds1.attrs['z_s']    = z_s_resolved
+            ds1.attrs['z_end']  = z_end
+            ds1.attrs['n_quad'] = n_quad
             if sim.simname:
-                ds.attrs['simulation'] = sim.simname
+                ds1.attrs['simulation'] = sim.simname
+
+            ds2.attrs['z_s']    = z_s_resolved
+            ds2.attrs['z_end']  = z_end
+            ds2.attrs['n_quad'] = n_quad
+            ds2.attrs['description']  = 'tau_dw from z_s (all cells, skip first)'
+            if sim.simname:
+                ds2.attrs['simulation'] = sim.simname
 
             f.create_dataset('delta', data=delta)
             f.create_dataset('z_beg', data=z_beg)
 
         print(f"Saved patchy tau_DW to: {filepath}")
 
-    return tau_dw, delta
+    return tau_dw1, tau_dw2, delta

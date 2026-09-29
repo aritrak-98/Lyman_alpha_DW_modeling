@@ -161,10 +161,56 @@ def load_sightlines(filepath):
 # Load optical depth data
 # ---------------------------------------------------------------------------
 
-def load_tau_dw(filepath):
+def load_tau_dw_patchy(filepath):
 
     """
-    Load optical depth data.
+    Load optical depth data in the patchy scenario.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the HDF5 files.
+
+    Returns
+    -------
+    tau_dw1 : np.ndarray, shape (N_gal, N_delta)
+        Damping wing optical depth. Values are inf for delta < 0. This is for z > z_beg
+    tau_dw2 : np.ndarray, shape (N_gal, N_delta)
+        Damping wing optical depth. Values are inf for delta < 0. This is for z > z_s
+    delta  : np.ndarray, shape (N_delta,)
+        The delta grid used.
+
+
+    Examples
+    --------
+    >>> tau_dw1, tau_dw2, delta = lyaDW.io.prop.load_tau_dw(
+    ...     './output/tau_dw_patchy_Thesan_z9.01.h5'
+    ... )
+    """
+
+    with h5py.File(filepath, 'r') as f:
+        tau_dw1 = f['tau_dw1'][:]
+        tau_dw2 = f['tau_dw2'][:]
+        delta  = f['delta'][:]
+
+        z_s   = f['tau_dw1'].attrs['z_s']
+        z_end = f['tau_dw1'].attrs['z_end']
+        simname = f['tau_dw1'].attrs['simulation']
+
+    print(f"Loaded tau_dw from: {filepath}")
+    print(f"Simulation  = {simname}")
+    print(f"  z_s       = {z_s:.4f}")
+    print(f"  z_end     = {z_end:.4f}")
+    print(f"  N_gal     = {tau_dw1.shape[0]}")
+    
+    return tau_dw1, tau_dw2, delta
+
+
+
+def load_tau_dw_uniform(filepath):
+
+    """
+    Load optical depth data in the uniform scenario.
 
     Parameters
     ----------
@@ -182,7 +228,7 @@ def load_tau_dw(filepath):
     Examples
     --------
     >>> tau_dw, delta = lyaDW.io.prop.load_tau_dw(
-    ...     './output/tau_dw_patchy_Thesan_z9.01.h5'
+    ...     './output/tau_dw_uniform_Thesan_z9.01.h5'
     ... )
     """
 

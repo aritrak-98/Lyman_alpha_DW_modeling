@@ -248,6 +248,127 @@ def load_delta_cube(sim, z, filepath=None):
     return deltax_cube
 
 
+def load_delta_T_cube(sim, z, filepath=None):
+    """
+    Read the 3D differential brightness temperature from LIMFAST.    
+
+    Parameters
+    ----------
+    sim : lyaDW.Simulation
+        Simulation context. Used for redshift resolution.
+    z : float
+        Redshift. Resolved to the closest available redshift in sim.
+    filepath : str, optional
+        Path to the directory containing LIMFAST box files.
+        Files are expected to match the pattern: delta_T_*
+        If None, raises a ValueError.
+
+    Returns
+    -------
+    delta_T_cube : np.ndarray, shape (N, N, N)
+        3D differential brightness temperature field.
+
+    Raises
+    ------
+    ValueError
+        If filepath is None or no matching file is found.
+
+    Examples
+    --------
+    >>> delta_T_cube, BoxSize = lyaDW.io.limfast.load_delta_T_cube(
+    ...     sim, z=7.03, filepath='/path/to/LIMFAST/Boxes/'
+    ... )
+    """
+    if filepath is None:
+        raise ValueError(
+            "filepath must be provided. "
+            "Pass the path to the directory containing LIMFAST box files."
+        )
+
+    z_resolved = sim.resolve_redshift(z)
+
+    # Find density file
+    pattern = os.path.join(filepath, f'delta_T_*')
+    matches = glob.glob(pattern)
+
+    if len(matches) == 0:
+        raise FileNotFoundError(
+            f"No LIMFAST xHI file found matching pattern: {pattern}"
+        )
+    if len(matches) > 1:
+        import warnings
+        warnings.warn(
+            f"Multiple files match pattern {pattern}. Using: {matches[0]}",
+            UserWarning, stacklevel=2
+        )
+
+    delta_T_cube = _read_cube(matches[0])
+    delta_T_cube = (delta_T_cube).astype(np.float64)
+
+    return delta_T_cube
+
+
+
+def load_sfrd_cube(sim, z, filepath=None):
+    """
+    Read the 3D star-formation rate density box from LIMFAST.    
+
+    Parameters
+    ----------
+    sim : lyaDW.Simulation
+        Simulation context. Used for redshift resolution.
+    z : float
+        Redshift. Resolved to the closest available redshift in sim.
+    filepath : str, optional
+        Path to the directory containing LIMFAST box files.
+        Files are expected to match the pattern: SFRD_*
+        If None, raises a ValueError.
+
+    Returns
+    -------
+    sfrd_cube : np.ndarray, shape (N, N, N)
+        3D sfrd field.
+
+    Raises
+    ------
+    ValueError
+        If filepath is None or no matching file is found.
+
+    Examples
+    --------
+    >>> sfrd_cube, BoxSize = lyaDW.io.limfast.load_sfrd_cube(
+    ...     sim, z=7.03, filepath='/path/to/LIMFAST/Boxes/'
+    ... )
+    """
+    if filepath is None:
+        raise ValueError(
+            "filepath must be provided. "
+            "Pass the path to the directory containing LIMFAST box files."
+        )
+
+    z_resolved = sim.resolve_redshift(z)
+
+    # Find density file
+    pattern = os.path.join(filepath, f'SFRD_*')
+    matches = glob.glob(pattern)
+
+    if len(matches) == 0:
+        raise FileNotFoundError(
+            f"No LIMFAST xHI file found matching pattern: {pattern}"
+        )
+    if len(matches) > 1:
+        import warnings
+        warnings.warn(
+            f"Multiple files match pattern {pattern}. Using: {matches[0]}",
+            UserWarning, stacklevel=2
+        )
+
+    sfrd_cube = _read_cube(matches[0])
+    sfrd_cube = (sfrd_cube).astype(np.float64)
+
+    return sfrd_cube
+
+
 # ---------------------------------------------------------------------------
 # Halo catalogs
 # ---------------------------------------------------------------------------

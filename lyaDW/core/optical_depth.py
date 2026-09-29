@@ -167,7 +167,7 @@ DEFAULT_DELTA = np.arange(-0.05, 0.05 + 5e-5, 5e-5)
 
 
 def compute_tau(z_beg, z_s, sim, z_end=5.5, delta=None, n_quad=64, 
-                batch_size=5000, save=False, savepath='./', filename=None):
+                batch_size=10000, save=False, savepath='./', filename=None):
     """
     Compute the Lyman-alpha damping wing optical depth tau_DW for each galaxy.
  
@@ -197,7 +197,7 @@ def compute_tau(z_beg, z_s, sim, z_end=5.5, delta=None, n_quad=64,
         Default: 64.
     batch_size : int, optional
         Number of galaxies to process per JAX batch. Reduce if running out
-        of GPU/TPU memory. Default: 5000.
+        of memory. Default: 5000.
     save : bool, optional
         If True, save tau_DW to an HDF5 file. Default: False.
     savepath : str, optional
