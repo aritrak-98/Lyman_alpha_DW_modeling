@@ -80,4 +80,4 @@ Exponential EW distribution from Mason+18
 7. tqdm
 
 
-Aritra Kundu acknowledges the use of the AI model Claude Sonnet 4.6 in helping to turn the modeling pipeline into a Python package.
+Aritra Kundu acknowledges the use of the AI model Claude Opus 4.8 and Sonnet 4.6 in helping to turn the entire modeling pipeline into a Python package.
