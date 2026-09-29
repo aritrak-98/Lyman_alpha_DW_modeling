@@ -64,7 +64,7 @@ The package now includes
 - more I/O modules for easily reading data files
 - damping wing optical depth calculation in patchy IGM scenario
 
-### Updates to version 0.2.0
+### Updates to version 0.3.0
 
 New intrinsic Lyman-alpha profile from Neyer+25
 Exponential EW distribution from Mason+18
